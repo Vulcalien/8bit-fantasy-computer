@@ -13,29 +13,42 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef VULC_8BIT_EMULATOR_CORE
-#define VULC_8BIT_EMULATOR_CORE
+#include "computer.h"
 
-#include "vulcalien/vulcalien.h"
+#include <stdio.h>
 
-#include <stdlib.h>
+static u8 *ram;
 
-struct device {
-    u8 page_offset;
+static int dev_init(void) {
+    ram = malloc(RAM_SIZE * 256 * sizeof(u8));
+    if(ram == NULL) {
+        fprintf(
+            stderr, "Error: could not allocate %d bytes.\n",
+            (int) (RAM_SIZE * 256 * sizeof(u8))
+        );
+        return -1;
+    }
+    return 0;
+}
 
-    int (*init)(void);
-    void (*destroy)(void);
+static void dev_destroy(void) {
+    free(ram);
+}
 
-    u8 (*read)(u16 addr);
-    void (*write)(u16 addr, u8 val);
+static u8 dev_read(u16 addr) {
+    return ram[addr];
+}
+
+static void dev_write(u16 addr, u8 val) {
+    ram[addr] = val;
+}
+
+static const struct device dev = {
+    .init = dev_init,
+    .destroy = dev_destroy,
+
+    .read = dev_read,
+    .write = dev_write
 };
 
-// unit: pages
-#define RAM_SIZE (16)
-#define ROM_SIZE (8)
-
-extern struct device NODEV;
-extern struct device RAM;
-extern struct device ROM;
-
-#endif // VULC_8BIT_EMULATOR_CORE
+struct device RAM = dev;
