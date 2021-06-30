@@ -19,7 +19,7 @@ CFLAGS   := -Wall -pedantic
 
 # Unix LDFLAGS and LDLIBS
 UNI_LDFLAGS := -Llib
-UNI_LDLIBS  := -l:lib6502-emulator.a
+UNI_LDLIBS  := -l:lib6502-emulator.a -lSDL2
 
 # Windows LDFLAGS and LDLIBS
 WIN_LDFLAGS := -Llib

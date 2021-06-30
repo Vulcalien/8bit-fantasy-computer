@@ -33,9 +33,13 @@ struct device {
 // unit: pages
 #define RAM_SIZE (16)
 #define ROM_SIZE (8)
+#define SCR_SIZE (65)
 
 extern struct device NODEV;
 extern struct device RAM;
 extern struct device ROM;
+extern struct device SCR;
+
+extern void screen_tick(void);
 
 #endif // VULC_8BIT_EMULATOR_CORE

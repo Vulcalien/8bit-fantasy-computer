@@ -30,14 +30,16 @@
 #define NODEV_ID (0)
 #define RAM_ID   (1)
 #define ROM_ID   (2)
+#define SCR_ID   (3)
 
 static struct device *devices[] = {
-    &NODEV, &RAM, &ROM
+    &NODEV, &RAM, &ROM, &SCR
 };
 
 static u8 memory_mapping[256] = { NODEV_ID };
 
-static void map_memory(u8 first_page, u8 pages, u8 dev_id) {
+// return the next adjacent page
+static u8 map_memory(u8 first_page, u8 pages, u8 dev_id) {
     devices[dev_id]->page_offset = first_page;
 
     for(u8 i = 0; i < pages; i++) {
@@ -47,34 +49,38 @@ static void map_memory(u8 first_page, u8 pages, u8 dev_id) {
 
         memory_mapping[page] = dev_id;
     }
+    return first_page + pages;
 }
 
 static void do_memory_mapping(void) {
+    u8 next = 0;
+
     // map the first RAM_SIZE pages
-    map_memory(0, RAM_SIZE, RAM_ID);
+    next = map_memory(0, RAM_SIZE, RAM_ID);
 
     // map the last ROM_SIZE pages
     map_memory(256 - ROM_SIZE - 1, ROM_SIZE, ROM_ID);
+
+    next = map_memory(RAM_SIZE, SCR_SIZE, SCR_ID);
 }
 
+// TODO misleading function name because of what it returns
 static u16 get_device(u16 addr, struct device **dev) {
     u8 page = addr >> 8;
     *dev = devices[memory_mapping[page]];
-    return (*dev)->page_offset;
+    return (*dev)->page_offset << 8;
 }
 // END --- MEMORY MAPPING ---
 
 static u8 read_byte(u16 addr) {
     struct device *dev;
     addr -= get_device(addr, &dev);
-
     return dev->read(addr);
 }
 
 static void write_byte(u16 addr, u8 val) {
     struct device *dev;
     addr -= get_device(addr, &dev);
-
     dev->write(addr, val);
 }
 
@@ -111,6 +117,8 @@ int main(int argc, const char *argv[]) {
     cpu_reset();
 
     while(true) {
+        screen_tick();
+
         cpu_clock();
 
         // 2 ms of sleep - the 6502 will operate at 500 op/second
