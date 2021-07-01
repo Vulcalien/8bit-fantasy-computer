@@ -59,7 +59,7 @@ static void do_memory_mapping(void) {
     next = map_memory(0, RAM_SIZE, RAM_ID);
 
     // map the last ROM_SIZE pages
-    map_memory(256 - ROM_SIZE - 1, ROM_SIZE, ROM_ID);
+    map_memory(256 - ROM_SIZE, ROM_SIZE, ROM_ID);
 
     next = map_memory(RAM_SIZE, SCR_SIZE, SCR_ID);
 }

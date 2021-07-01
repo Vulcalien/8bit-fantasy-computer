@@ -48,7 +48,7 @@ static void dev_destroy(void) {
 }
 
 static u8 dev_read(u16 addr) {
-    return 0;
+    return rom[addr];
 }
 
 static void dev_write(u16 addr, u8 val) {
