@@ -13,11 +13,11 @@
 ; with this program; if not, write to the Free Software Foundation, Inc.,
 ; 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-; the OS is located on the last 8 addressable pages
+; the OS is located in the last 8 addressable pages
 * = $f800
 
 ; --- RESET --- ;
-reset
+reset:
     sei
     cld
 
@@ -28,12 +28,12 @@ reset
     cli
 
 ; --- COMMAND LINE ---
-command_line
+command_line:
     ; TODO
     jmp *
 
 ; --- VECTORS ---
-start_of_padding
+start_of_padding:
     * = $fffa
     .dsb (* - start_of_padding), $00
     * = $fffa
