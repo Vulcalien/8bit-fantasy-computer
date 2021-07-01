@@ -47,6 +47,10 @@ command_line:
 
     jsr draw_character
 
+    pla
+    pla
+    pla
+    pla
 
     ; TODO
     jmp *
@@ -97,7 +101,7 @@ draw_character:
     cld
 
     ; load the address of the pointer into Y register
-    ; address = (var_char - 32) * 2
+    ; address = (arg_char - 32) * 2
     lda arg_char,X
     sec
     sbc #32
@@ -228,8 +232,9 @@ draw_character:
         end_y_loop:
         .)
 
-        pla     ; x counter
-        pla     ; y counter
+        pla     ; var_byte_to_read
+        pla     ; var_x_counter
+        pla     ; var_y_counter
         jmp end_5by5
     if_5by5:
         ; TODO use the code used for 3x5
