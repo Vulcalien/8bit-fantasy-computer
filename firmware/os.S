@@ -18,6 +18,7 @@
 
 ; --- RESET ---
 reset:
+.(
     sei
     cld
 
@@ -26,11 +27,30 @@ reset:
     txs
 
     cli
+.)
 
 ; --- COMMAND LINE ---
 command_line:
+.(
+    ; DEBUG testing draw_character
+    sta $5000
+
+    lda #0
+    pha ; y
+    pha ; x
+
+    lda #7
+    pha ; color
+
+    lda 33
+    pha ; ascii char
+
+    jsr draw_character
+
+
     ; TODO
     jmp *
+.)
 
 ; --- FONT ---
 ; Each bit represents a pixel
@@ -41,6 +61,7 @@ command_line:
 ; 5x5 characters have the first bit set to 1 and use 4 bytes
 ; but the last 6 bits are for padding
 font:
+.(
     ; "font" is an array of pointers to characters
     .word char_32, char_33, char_34, char_35, char_36, char_37
 
@@ -56,6 +77,173 @@ font:
         .byt %10000000, %00000000, %00000000, %00000000
     char_37: ; %
         .byt %11000100, %01000100, %01000100, %01000000
+.)
+
+; --- DRAW CHARACTER ---
+draw_character:
+.(
+    tsx
+
+    ; arguments and variables
+    arg_char  = $0100-3
+    arg_color = $0100-4
+    arg_x     = $0100-5
+    arg_y     = $0100-6
+
+    zpg_sprite_ptr = $00
+    zpg_write_addr = $02
+
+    ; -----
+    cld
+
+    ; load the address of the pointer into Y register
+    ; address = (var_char - 32) * 2
+    lda arg_char,X
+    sec
+    sbc #32
+    asl
+    tay
+
+    ; copy the pointer to the zero page
+    lda font,Y
+    sta zpg_sprite_ptr
+
+    iny
+    lda font,Y
+    sta zpg_sprite_ptr+1
+
+    ; read the first byte
+    lda #0
+    pha
+    var_current_byte = $0100
+
+    ldy #0
+    lda (zpg_sprite_ptr),Y
+    sta var_current_byte,X
+
+    ; initialize zpg_write_addr
+    ; arg_x and arg_y only use 7 bits
+
+    ; all of arg_x's 7 bits are on the low byte
+    lda arg_x,X
+    and #%01111111
+
+    ; while arg_y's 0-bit is on the low byte
+    ; and the remaining go to the high byte
+    ldy arg_y,X
+    .(
+    ; if arg_y is negative, then the 7-bit is set
+    bpl do_nothing
+    ora #%10000000
+    do_nothing:
+    .)
+    sta zpg_write_addr
+
+    ; now calculate the high byte
+    tya
+    lsr
+    and %00111111
+
+    ; add the first page used by the screen
+    clc
+    adc $10
+
+    sta zpg_write_addr+1
+
+    and #%10000000
+
+    ; check if the given character is 5x5 or 3x5
+    .(
+    ; create bitmask variable
+    lda #%00000001
+    pha
+    var_bitmask = $0100+1
+
+    beq if_5by5
+    else_5by5:
+        lda #0
+        pha
+        var_y_counter = $0100+2
+
+        pha
+        var_x_counter = $0100+3
+
+        lda #1
+        pha
+        var_byte_to_read = $0100+4
+
+        .(
+        loop_y:
+        lda var_y_counter,X
+        cmp #3
+        beq end_y_loop
+
+        .(
+        loop_x:
+            lda var_x_counter,X
+            cmp #5
+            beq end_x_loop
+
+            lda var_current_byte,X
+            and var_bitmask,X
+
+            ; if the desired bit is set, then write a pixel
+            .(
+            beq dont_write
+
+            lda arg_color,X
+            ldy #0
+            sta (zpg_write_addr),Y
+
+            dont_write:
+            .)
+
+            lda var_bitmask,X
+            rol
+            sta var_bitmask,X
+
+            ; if the bitmask is 1 again, that means
+            ; that 8 bits have already been used
+            ; so it's time to read the next byte
+            cmp #1
+            .(
+            bne do_nothing
+
+            ldy var_byte_to_read,X
+            lda (zpg_sprite_ptr),Y
+            inc var_byte_to_read,X
+
+            do_nothing:
+            .)
+
+            ; TODO increase x coordinate
+
+            inc var_x_counter,X
+            end_x_loop:
+        .)
+
+        ; TODO increase y coordinate
+
+        inc var_y_counter,X
+        end_y_loop:
+        .)
+
+        pla     ; x counter
+        pla     ; y counter
+        jmp end_5by5
+    if_5by5:
+        ; TODO use the code used for 3x5
+        ; the only difference should be the loop counters
+        ; and the remaining bits
+
+    end_5by5:
+
+    pla     ; var_bitmask
+    .)
+    pla     ; var_current_byte
+
+    rts
+.)
 
 ; padding between code and the vectors
 .(
