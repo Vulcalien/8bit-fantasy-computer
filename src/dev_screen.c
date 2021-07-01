@@ -30,7 +30,12 @@ static SDL_Texture *texture;
 
 static u32 *pixels;
 
-static u32 palette[16];
+static u32 palette[16] = {
+    0x484848, 0xcc3333, 0x33bb33, 0xccbb33,
+    0x3333aa, 0x9933aa, 0x3399aa, 0xcccccc,
+    0x222222, 0x881111, 0x117011, 0x886633,
+    0x111166, 0x551188, 0x115588, 0x777777
+};
 #define PALETTE_SIZE (sizeof(palette) / sizeof(palette[0]))
 
 static int dev_init(void) {
@@ -42,12 +47,7 @@ static int dev_init(void) {
         );
         return -1;
     }
-    memset(pixels, 0, SCR_W * SCR_H * sizeof(u32));
-
-    // generate palette
-    for(u32 i = 0; i < PALETTE_SIZE; i++) {
-        palette[i] = 0xffffff * i / PALETTE_SIZE;
-    }
+    memset(pixels, palette[0], SCR_W * SCR_H * sizeof(u32));
 
     int err = SDL_Init(SDL_INIT_VIDEO);
     if(err < 0) {
