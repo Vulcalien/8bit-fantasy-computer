@@ -2,5 +2,7 @@
 /obj/
 /bin/
 
+/firmware/os.o65
+
 # vim
 *.swp
