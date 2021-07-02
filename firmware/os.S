@@ -19,14 +19,16 @@
 ; --- RESET ---
 reset:
 .(
-    sei
-    cld
+    sei                             ; disable interrupts
+    cld                             ; disable decimal mode
 
     ; set stack pointer to $ff
-    ldx #$ff
-    txs
+    ldx #$ff                        ; X = $ff
+    txs                             ; SP = X
 
-    cli
+    cli                             ; allow interrupts
+
+    jmp command_line                ;
 .)
 
 ; --- COMMAND LINE ---
@@ -86,155 +88,146 @@ font:
 ; --- DRAW CHARACTER ---
 draw_character:
 .(
-    tsx
+    tsx                             ; X = SP
 
-    ; arguments and variables
-    arg_char  = $0100-3
-    arg_color = $0100-4
-    arg_x     = $0100-5
-    arg_y     = $0100-6
+    ; arguments
+    arg_char  = $0100-3             ;
+    arg_color = $0100-4             ;
+    arg_x     = $0100-5             ;
+    arg_y     = $0100-6             ;
 
     zpg_sprite_ptr = $00
     zpg_write_addr = $02
 
-    ; -----
-    cld
+    cld                             ; disable decimal mode
 
     ; load the address of the pointer into Y register
     ; address = (arg_char - 32) * 2
-    lda arg_char,X
-    sec
-    sbc #32
-    asl
-    tay
+    lda arg_char,X                  ; A = arg_char
+    sec                             ; C = 1
+    sbc #32                         ; A -= 32
+    asl                             ; A *= 2 ; pointers are 2 bytes in size
+    tay                             ; Y = A
 
-    ; copy the pointer to the zero page
-    lda font,Y
-    sta zpg_sprite_ptr
+    lda font,Y                      ; A = low byte ; Y is used as index
+    sta zpg_sprite_ptr              ; zpg_sprite_ptr LO = A
 
-    iny
-    lda font,Y
-    sta zpg_sprite_ptr+1
+    lda font+1,Y                    ; A = high byte
+    sta zpg_sprite_ptr+1            ; zpg_sprite_ptr HI = A
 
-    ; read the first byte
-    lda #0
-    pha
-    var_current_byte = $0100
+    ; read the first char byte
+    pha                             ; var_current_byte = ?
+    var_current_byte = $0100        ;
 
-    ldy #0
-    lda (zpg_sprite_ptr),Y
-    sta var_current_byte,X
-
-    ; initialize zpg_write_addr
-    ; arg_x and arg_y only use 7 bits
-
-    ; all of arg_x's 7 bits are on the low byte
-    lda arg_x,X
-    and #%01111111
-
-    ; while arg_y's 0-bit is on the low byte
-    ; and the remaining go to the high byte
-    ldy arg_y,X
-    .(
-    ; if arg_y is negative, then the 7-bit is set
-    bpl do_nothing
-    ora #%10000000
-    do_nothing:
-    .)
-    sta zpg_write_addr
-
-    ; now calculate the high byte
-    tya
-    lsr
-    and %00111111
-
-    ; add the first page used by the screen
-    clc
-    adc $10
-
-    sta zpg_write_addr+1
-
-    and #%10000000
+    ldy #0                          ; Y = 0
+    lda (zpg_sprite_ptr),Y          ; A = (zpg_sprite_ptr),Y
+    sta var_current_byte,X          ; var_current_byte = A
 
     ; check if the given character is 5x5 or 3x5
     .(
     ; create bitmask variable
-    lda #%00000001
-    pha
-    var_bitmask = $0100+1
+    lda #%00000001                  ; var_bitmask = %00000001
+    pha                             ;
+    var_bitmask = $0100+1           ;
 
-    beq if_5by5
+    lda var_current_byte,X          ; A = var_current_byte
+    bmi if_5by5                     ; if bit-7 is set (it is when the char is 5x5)
     else_5by5:
-        lda #0
-        pha
-        var_y_counter = $0100+2
+        lda #0                          ; var_y_counter = 0
+        pha                             ;
+        var_y_counter = $0100+2         ;
 
-        pha
-        var_x_counter = $0100+3
+        pha                             ; var_x_counter = 0 (avoid lda again)
+        var_x_counter = $0100+3         ;
 
-        lda #1
-        pha
-        var_byte_to_read = $0100+4
+        lda #1                          ; var_byte_to_read = 1
+        pha                             ;
+        var_byte_to_read = $0100+4      ;
+
+        pha                             ; var_y_pix = ?
+        var_y_pix = $0100+5             ;
 
         .(
         loop_y:
-        lda var_y_counter,X
-        cmp #3
-        beq end_y_loop
+            lda var_y_counter,X             ; A = var_y_counter
+            cmp #3                          ;
+            beq end_loop_y                  ; if A == 3 -> exit loop_y
 
-        .(
-        loop_x:
-            lda var_x_counter,X
-            cmp #5
-            beq end_x_loop
+            ; calculate y coordinate
+            ; var_y_pix = (arg_y + var_y_counter) & %01111111
+            clc                             ; C = 0
+            adc arg_y,X                     ; A (value var_y_counter) += arg_y
+            and #%01111111                  ; A &= %01111111 ; y cannot be >= 128
+            sta var_y_pix,X                 ; var_y_pix = A
 
-            lda var_current_byte,X
-            and var_bitmask,X
+            ; set low byte, where the first bit of y becomes bit-7
+            ror                             ; rotate right A (value var_y_pix)
+            and %10000000                   ; A &= %10000000
+            sta zpg_write_addr              ; zpg_write_addr LO = A
 
-            ; if the desired bit is set, then write a pixel
+            ; set high byte
+            lda var_y_pix,X                 ; A = var_y_pix
+            asl                             ; A >>= 1 ; the first bit is in the low byte
+            clc                             ; C = 0
+            adc #$10                        ; A += $10 (the first page used by screen)
+            sta zpg_write_addr+1            ; zpg_write_addr HI = A
+
             .(
-            beq dont_write
+            loop_x:
+                lda var_x_counter,X             ; A = var_x_counter
+                cmp #5                          ;
+                beq end_loop_x                  ; if A == 5 -> exit loop_x
 
-            lda arg_color,X
-            ldy #0
-            sta (zpg_write_addr),Y
+                ; calculate x coordinate (and use it directly, without storing it)
+                ; var_x_pix = (arg_x + var_x_counter) & %01111111
+                clc                             ; C = 0
+                adc arg_x,X                     ; A (value var_x_counter) += arg_x
+                and #%01111111                  ; A &= %01111111 ; x cannot be >= 128
 
-            dont_write:
+                ; the value stored by the loop_y
+                ; (bit-7) must be considered
+                ora zpg_write_addr              ; A |= zpg_write_addr LO
+                sta zpg_write_addr              ; zpg_write_addr LO = A
+
+                ; if the desired bit is set, then write a pixel
+                .(
+                lda var_current_byte,X          ; A = var_current_byte
+                and var_bitmask,X               ; A &= var_bitmask
+                beq dont_write                  ; if A == 0 -> goto dont_write
+
+                    lda arg_color,X                 ; A = arg_color
+                    ldy #0                          ; Y = 0
+                    sta (zpg_write_addr),Y          ; write A to ptr (zpg_write_addr),Y
+
+                dont_write:
+                .)
+
+                rol var_bitmask,X               ; rotate left var_bitmask
+
+                ; if the bitmask is 1 again, this means
+                ; that 8 bits have already been used
+                ; so it's time to read the next byte
+                .(
+                lda var_bitmask,X               ; A = var_bitmask
+                cmp #1                          ;
+                bne do_nothing                  ; if A != 1 -> goto do_nothing
+
+                    ; read next byte
+                    ldy var_byte_to_read,X          ; Y = var_byte_to_read
+                    lda (zpg_sprite_ptr),Y          ; A = (zpg_sprite_ptr),Y
+                    inc var_byte_to_read,X          ; var_byte_to_read++
+
+                do_nothing:
+                .)
+
+                inc var_x_counter,X             ; var_x_counter++
+            end_loop_x:
             .)
 
-            lda var_bitmask,X
-            rol
-            sta var_bitmask,X
-
-            ; if the bitmask is 1 again, that means
-            ; that 8 bits have already been used
-            ; so it's time to read the next byte
-            cmp #1
-            .(
-            bne do_nothing
-
-            ldy var_byte_to_read,X
-            lda (zpg_sprite_ptr),Y
-            inc var_byte_to_read,X
-
-            do_nothing:
-            .)
-
-            ; TODO increase x coordinate
-
-            inc var_x_counter,X
-            end_x_loop:
+            inc var_y_counter,X             ; var_y_counter++
+        end_loop_y:
         .)
 
-        ; TODO increase y coordinate
-
-        inc var_y_counter,X
-        end_y_loop:
-        .)
-
-        pla     ; var_byte_to_read
-        pla     ; var_x_counter
-        pla     ; var_y_counter
         jmp end_5by5
     if_5by5:
         ; TODO use the code used for 3x5
@@ -243,10 +236,9 @@ draw_character:
 
     end_5by5:
 
-    pla     ; var_bitmask
     .)
-    pla     ; var_current_byte
 
+    txs                             ; SP = X ; deallocate all local variables
     rts
 .)
 
