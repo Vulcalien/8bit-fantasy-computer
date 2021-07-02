@@ -44,7 +44,7 @@ command_line:
     lda #7
     pha ; color
 
-    lda 33
+    lda #34
     pha ; ascii char
 
     jsr draw_character
@@ -91,10 +91,10 @@ draw_character:
     tsx                             ; X = SP
 
     ; arguments
-    arg_char  = $0100-3             ;
-    arg_color = $0100-4             ;
-    arg_x     = $0100-5             ;
-    arg_y     = $0100-6             ;
+    arg_char  = $0100+2             ;
+    arg_color = $0100+3             ;
+    arg_x     = $0100+4             ;
+    arg_y     = $0100+5             ;
 
     zpg_sprite_ptr = $00
     zpg_write_addr = $02
@@ -121,35 +121,35 @@ draw_character:
 
     ldy #0                          ; Y = 0
     lda (zpg_sprite_ptr),Y          ; A = (zpg_sprite_ptr),Y
-    sta var_current_byte,X          ; var_current_byte = A
+    sta! var_current_byte,X         ; var_current_byte = A
 
     ; check if the given character is 5x5 or 3x5
     .(
     ; create bitmask variable
     lda #%00000001                  ; var_bitmask = %00000001
     pha                             ;
-    var_bitmask = $0100+1           ;
+    var_bitmask = $0100-1           ;
 
-    lda var_current_byte,X          ; A = var_current_byte
+    lda! var_current_byte,X         ; A = var_current_byte
     bmi if_5by5                     ; if bit-7 is set (it is when the char is 5x5)
     else_5by5:
         lda #0                          ; var_y_counter = 0
         pha                             ;
-        var_y_counter = $0100+2         ;
+        var_y_counter = $0100-2         ;
 
         pha                             ; var_x_counter = 0 (avoid lda again)
-        var_x_counter = $0100+3         ;
+        var_x_counter = $0100-3         ;
 
         lda #1                          ; var_byte_to_read = 1
         pha                             ;
-        var_byte_to_read = $0100+4      ;
+        var_byte_to_read = $0100-4      ;
 
         pha                             ; var_y_pix = ?
-        var_y_pix = $0100+5             ;
+        var_y_pix = $0100-5             ;
 
         .(
         loop_y:
-            lda var_y_counter,X             ; A = var_y_counter
+            lda! var_y_counter,X            ; A = var_y_counter
             cmp #3                          ;
             beq end_loop_y                  ; if A == 3 -> exit loop_y
 
@@ -158,15 +158,15 @@ draw_character:
             clc                             ; C = 0
             adc arg_y,X                     ; A (value var_y_counter) += arg_y
             and #%01111111                  ; A &= %01111111 ; y cannot be >= 128
-            sta var_y_pix,X                 ; var_y_pix = A
+            sta! var_y_pix,X                ; var_y_pix = A
 
             ; set low byte, where the first bit of y becomes bit-7
             ror                             ; rotate right A (value var_y_pix)
-            and %10000000                   ; A &= %10000000
+            and #%10000000                  ; A &= %10000000
             sta zpg_write_addr              ; zpg_write_addr LO = A
 
             ; set high byte
-            lda var_y_pix,X                 ; A = var_y_pix
+            lda! var_y_pix,X                ; A = var_y_pix
             asl                             ; A >>= 1 ; the first bit is in the low byte
             clc                             ; C = 0
             adc #$10                        ; A += $10 (the first page used by screen)
@@ -174,7 +174,7 @@ draw_character:
 
             .(
             loop_x:
-                lda var_x_counter,X             ; A = var_x_counter
+                lda! var_x_counter,X            ; A = var_x_counter
                 cmp #5                          ;
                 beq end_loop_x                  ; if A == 5 -> exit loop_x
 
@@ -191,8 +191,8 @@ draw_character:
 
                 ; if the desired bit is set, then write a pixel
                 .(
-                lda var_current_byte,X          ; A = var_current_byte
-                and var_bitmask,X               ; A &= var_bitmask
+                lda! var_current_byte,X         ; A = var_current_byte
+                and! var_bitmask,X              ; A &= var_bitmask
                 beq dont_write                  ; if A == 0 -> goto dont_write
 
                     lda arg_color,X                 ; A = arg_color
@@ -202,29 +202,29 @@ draw_character:
                 dont_write:
                 .)
 
-                rol var_bitmask,X               ; rotate left var_bitmask
+                rol! var_bitmask,X              ; rotate left var_bitmask
 
                 ; if the bitmask is 1 again, this means
                 ; that 8 bits have already been used
                 ; so it's time to read the next byte
                 .(
-                lda var_bitmask,X               ; A = var_bitmask
+                lda! var_bitmask,X              ; A = var_bitmask
                 cmp #1                          ;
                 bne do_nothing                  ; if A != 1 -> goto do_nothing
 
                     ; read next byte
-                    ldy var_byte_to_read,X          ; Y = var_byte_to_read
+                    ldy! var_byte_to_read,X         ; Y = var_byte_to_read
                     lda (zpg_sprite_ptr),Y          ; A = (zpg_sprite_ptr),Y
-                    inc var_byte_to_read,X          ; var_byte_to_read++
+                    inc! var_byte_to_read,X         ; var_byte_to_read++
 
                 do_nothing:
                 .)
 
-                inc var_x_counter,X             ; var_x_counter++
+                inc! var_x_counter,X            ; var_x_counter++
             end_loop_x:
             .)
 
-            inc var_y_counter,X             ; var_y_counter++
+            inc! var_y_counter,X            ; var_y_counter++
         end_loop_y:
         .)
 
