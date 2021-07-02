@@ -189,26 +189,26 @@ draw_character:
         lda #0                          ; A = 0
         sta! var_x_counter,X            ; var_x_counter = A
         loop_x:
-            ; calculate x coordinate
-            ; var_x_pix = (arg_x + var_x_counter) & %01111111
-            lda arg_x,X                     ; A = arg_x
-            clc                             ; C = 0
-            adc! var_x_counter,X            ; A += var_x_counter
-            and #%01111111                  ; A &= %01111111 ; x cannot be >= 128
-            sta! var_x_pix,X                ; var_x_pix = A
-
-            ; bit-7 was set previously, so
-            ; delete the other bits but keep it
-            lda zpg_write_addr              ; A = zpg_write_addr LO
-            and #%10000000                  ; A &= %10000000
-            ora! var_x_pix,X                ; A |= var_x_pix
-            sta zpg_write_addr              ; zpg_write_addr LO = A
-
             ; if the desired bit is set, then write a pixel
             .(
             lda! var_current_byte,X         ; A = var_current_byte
             and! var_bitmask,X              ; A &= var_bitmask
             beq dont_write                  ; if A == 0 -> goto dont_write
+
+                ; calculate x coordinate
+                ; var_x_pix = (arg_x + var_x_counter) & %01111111
+                lda arg_x,X                     ; A = arg_x
+                clc                             ; C = 0
+                adc! var_x_counter,X            ; A += var_x_counter
+                and #%01111111                  ; A &= %01111111 ; x cannot be >= 128
+                sta! var_x_pix,X                ; var_x_pix = A
+
+                ; bit-7 was set previously, so
+                ; delete the other bits but keep it
+                lda zpg_write_addr              ; A = zpg_write_addr LO
+                and #%10000000                  ; A &= %10000000
+                ora! var_x_pix,X                ; A |= var_x_pix
+                sta zpg_write_addr              ; zpg_write_addr LO = A
 
                 lda arg_color,X                 ; A = arg_color
                 ldy #0                          ; Y = 0
