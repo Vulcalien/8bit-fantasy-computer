@@ -143,6 +143,7 @@ draw_character:
 
     pha                             ; var_y_pix = ?
     var_y_pix = $0100-5             ;
+    var_x_pix = var_y_pix           ; var_x_pix is var_y_pix
 
     lda #3                          ; var_char_width = 3
     pha                             ;
@@ -188,16 +189,19 @@ draw_character:
         lda #0                          ; A = 0
         sta! var_x_counter,X            ; var_x_counter = A
         loop_x:
-            ; calculate x coordinate (and use it directly, without storing it)
+            ; calculate x coordinate
             ; var_x_pix = (arg_x + var_x_counter) & %01111111
             lda arg_x,X                     ; A = arg_x
             clc                             ; C = 0
             adc! var_x_counter,X            ; A += var_x_counter
             and #%01111111                  ; A &= %01111111 ; x cannot be >= 128
+            sta! var_x_pix,X                ; var_x_pix = A
 
-            ; the value stored by the loop_y
-            ; (bit-7) must be considered
-            ora zpg_write_addr              ; A |= zpg_write_addr LO
+            ; bit-7 was set previously, so
+            ; delete the other bits but keep it
+            lda zpg_write_addr              ; A = zpg_write_addr LO
+            and #%10000000                  ; A &= %10000000
+            ora! var_x_pix,X                ; A |= var_x_pix
             sta zpg_write_addr              ; zpg_write_addr LO = A
 
             ; if the desired bit is set, then write a pixel
