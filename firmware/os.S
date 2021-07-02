@@ -165,8 +165,9 @@ draw_character:
     loop_y:
         ; calculate y coordinate
         ; var_y_pix = (arg_y + var_y_counter) & %01111111
+        lda arg_y,X                     ; A = arg_y
         clc                             ; C = 0
-        adc arg_y,X                     ; A (value var_y_counter) += arg_y
+        adc! var_y_counter,X            ; A += var_y_counter
         and #%01111111                  ; A &= %01111111 ; y cannot be >= 128
         sta! var_y_pix,X                ; var_y_pix = A
 
@@ -177,7 +178,7 @@ draw_character:
 
         ; set high byte
         lda! var_y_pix,X                ; A = var_y_pix
-        asl                             ; A >>= 1 ; the first bit is in the low byte
+        lsr                             ; A >>= 1 ; the first bit is in the low byte
         clc                             ; C = 0
         adc #$10                        ; A += $10 (the first page used by screen)
         sta zpg_write_addr+1            ; zpg_write_addr HI = A
@@ -186,8 +187,9 @@ draw_character:
         loop_x:
             ; calculate x coordinate (and use it directly, without storing it)
             ; var_x_pix = (arg_x + var_x_counter) & %01111111
+            lda arg_x,X                     ; A = arg_x
             clc                             ; C = 0
-            adc arg_x,X                     ; A (value var_x_counter) += arg_x
+            adc! var_x_counter,X            ; A += var_x_counter
             and #%01111111                  ; A &= %01111111 ; x cannot be >= 128
 
             ; the value stored by the loop_y
