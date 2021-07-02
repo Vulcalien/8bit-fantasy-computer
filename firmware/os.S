@@ -126,9 +126,9 @@ draw_character:
     sta! var_current_byte,X         ; var_current_byte = A
 
     ; create some variable
-    lda #%00000001                  ; var_bitmask = %00000001
-    pha                             ;
-    var_bitmask = $0100-1           ;
+    lda #%01000000                  ; var_bitmask = %01000000
+    pha                             ; with this value, the first bit
+    var_bitmask = $0100-1           ; will be ignored
 
     lda #0                          ; var_y_counter = 0
     pha                             ;
@@ -184,6 +184,9 @@ draw_character:
         sta zpg_write_addr+1            ; zpg_write_addr HI = A
 
         .(
+        ; reset the x counter
+        lda #0                          ; A = 0
+        sta! var_x_counter,X            ; var_x_counter = A
         loop_x:
             ; calculate x coordinate (and use it directly, without storing it)
             ; var_x_pix = (arg_x + var_x_counter) & %01111111
@@ -210,15 +213,15 @@ draw_character:
             dont_write:
             .)
 
-            rol! var_bitmask,X              ; rotate left var_bitmask
+            ror! var_bitmask,X              ; rotate right var_bitmask
 
-            ; if the bitmask is 1 again, this means
+            ; if the bitmask is %10000000, this means
             ; that 8 bits have already been used
             ; so it's time to read the next byte
             .(
             lda! var_bitmask,X              ; A = var_bitmask
-            cmp #1                          ;
-            bne do_nothing                  ; if A != 1 -> goto do_nothing
+            cmp #%10000000                  ;
+            bne do_nothing                  ; if A != %10000000 -> goto do_nothing
 
                 ; read next byte
                 ldy! var_byte_to_read,X         ; Y = var_byte_to_read
