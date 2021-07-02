@@ -44,7 +44,7 @@ command_line:
     lda #7
     pha ; color
 
-    lda #34
+    lda #35
     pha ; ascii char
 
     jsr draw_character
@@ -53,6 +53,8 @@ command_line:
     pla
     pla
     pla
+
+    sta $5000
 
     ; TODO
     jmp *
@@ -91,10 +93,10 @@ draw_character:
     tsx                             ; X = SP
 
     ; arguments
-    arg_char  = $0100+2             ;
-    arg_color = $0100+3             ;
-    arg_x     = $0100+4             ;
-    arg_y     = $0100+5             ;
+    arg_char  = $0100+3             ;
+    arg_color = $0100+4             ;
+    arg_x     = $0100+5             ;
+    arg_y     = $0100+6             ;
 
     zpg_sprite_ptr = $00
     zpg_write_addr = $02
@@ -150,20 +152,17 @@ draw_character:
     ; if it is, change the width to 5
     .(
     lda! var_current_byte,X         ; A = var_current_byte
-    bmi do_nothing                  ; if bit-7 is set ;
+    bpl do_nothing                  ; if bit-7 is not set -> goto do_nothing
 
         lda #5                      ; A = 5
-        sta! var_char_width         ; var_char_width = A
+        sta! var_char_width,X       ; var_char_width = A
 
     do_nothing:
     .)
 
     .(
+    ; do...
     loop_y:
-        lda! var_y_counter,X            ; A = var_y_counter
-        cmp #5                          ;
-        beq end_loop_y                  ; if A == 5 -> exit loop_y
-
         ; calculate y coordinate
         ; var_y_pix = (arg_y + var_y_counter) & %01111111
         clc                             ; C = 0
@@ -185,10 +184,6 @@ draw_character:
 
         .(
         loop_x:
-            lda! var_x_counter,X            ; A = var_x_counter
-            cmp! var_char_width,X           ;
-            beq end_loop_x                  ; if A == var_char_width -> exit loop_x
-
             ; calculate x coordinate (and use it directly, without storing it)
             ; var_x_pix = (arg_x + var_x_counter) & %01111111
             clc                             ; C = 0
@@ -232,10 +227,20 @@ draw_character:
             .)
 
             inc! var_x_counter,X            ; var_x_counter++
+
+            ; ...while
+            lda! var_x_counter,X            ; A = var_x_counter
+            cmp! var_char_width,X           ;
+            bne loop_x                      ; if A != var_char_width -> goto loop_x
         end_loop_x:
         .)
 
         inc! var_y_counter,X            ; var_y_counter++
+
+        ; ...while
+        lda! var_y_counter,X            ; A = var_y_counter
+        cmp #5                          ;
+        bne loop_y                      ; if A != 5 -> goto loop_y
     end_loop_y:
     .)
 
