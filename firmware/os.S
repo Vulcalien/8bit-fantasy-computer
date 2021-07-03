@@ -87,10 +87,60 @@ font:
         .byt %11000100, %01000100, %01000100, %01000000
 .)
 
+; ----- GRAPHICS -----
+
+zpg_write_addr = $00
+
+; --- SET PIXEL ---
+set_pixel:
+.(
+    tsx                             ; X = SP
+    cld                             ; disable decimal mode
+
+    ; arguments
+    arg_color = $0100+3
+    arg_x     = $0100+4
+    arg_y     = $0100+5
+
+    ; NOTE
+    ; arg_x and arg_y are 7 bits unsigned integers
+    ; bit-7 is ignored
+
+    ; set low byte
+    ; the last bit is bit-0 of arg_y
+    lda arg_y,X                     ; A = arg_y
+    ror                             ; 1st rotate right A ; C = bit-0
+    ror                             ; 2nd rotate right A ; bit-7 = C
+    and #%10000000                  ; A &= %10000000
+    sta zpg_write_addr              ; zpg_write_addr LO = A
+
+    ; the first 7 bits are copied from arg_x
+    lda arg_x,X                     ; A = arg_x
+    and #%01111111                  ; A &= %01111111
+    ora zpg_write_addr              ; A |= zpg_write_addr LO ; consider bit-7
+    sta zpg_write_addr              ; zpg_write_addr LO = A
+
+    ; set high byte
+    lda arg_y,X                     ; A = arg_y
+    and #%01111111                  ; A &= %01111111
+    lsr                             ; A >>= 1 ; bit-0 was already used
+    clc                             ; C = 0
+    adc #$10                        ; A += $10 ; pixel [0, 0]
+    sta zpg_write_addr+1            ; zpg_write_addr HI = A
+
+    ; write to the screen
+    lda arg_color,X                 ; A = arg_color
+    ldy #0                          ; Y = 0
+    sta (zpg_write_addr),Y          ; write A to ptr (zpg_write_addr),Y
+
+    rts
+.)
+
 ; --- DRAW CHARACTER ---
 draw_character:
 .(
     tsx                             ; X = SP
+    cld                             ; disable decimal mode
 
     ; arguments
     arg_char  = $0100+3             ;
@@ -98,10 +148,7 @@ draw_character:
     arg_x     = $0100+5             ;
     arg_y     = $0100+6             ;
 
-    zpg_sprite_ptr = $00
-    zpg_write_addr = $02
-
-    cld                             ; disable decimal mode
+    zpg_sprite_ptr = $02
 
     ; load the address of the pointer into Y register
     ; address = (arg_char - 32) * 2
