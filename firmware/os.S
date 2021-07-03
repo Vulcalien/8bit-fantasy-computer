@@ -103,13 +103,15 @@ set_pixel:
     arg_y     = $0100+5
 
     ; NOTE
-    ; arg_x and arg_y are 7 bits unsigned integers
-    ; bit-7 is ignored
+    ;   arg_x and arg_y are 7 bits unsigned integers
+    ;   bit-7 is ignored
 
     ; set low byte
     ; the last bit is bit-0 of arg_y
+    ; NOTE
+    ;   since all bits, except bit-7, are cleared
+    ;   it's unnecessary to clc before doing ror
     lda arg_y,X                     ; A = arg_y
-    clc                             ; C = 0
     ror                             ; 1st rotate right A ; C = bit-0
     ror                             ; 2nd rotate right A ; bit-7 = C
     and #%10000000                  ; A &= %10000000
@@ -221,7 +223,9 @@ draw_character:
         sta! var_y_pix,X                ; var_y_pix = A
 
         ; set low byte, where the first bit of y becomes bit-7
-        clc                             ; C = 0
+        ; NOTE
+        ;   since all bits, except bit-7, are cleared
+        ;   it's unnecessary to clc before doing ror
         ror                             ; 1st rotate right A (value var_y_pix) ; C = bit-0
         ror                             ; 2nd rotate right A                   ; bit-7 = C
         and #%10000000                  ; A &= %10000000
@@ -270,6 +274,7 @@ draw_character:
             dont_write:
             .)
 
+            clc                             ; C = 0
             ror! var_bitmask,X              ; rotate right var_bitmask
 
             ; if the last rotate var_bitmask set the C flag
