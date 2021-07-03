@@ -109,6 +109,7 @@ set_pixel:
     ; set low byte
     ; the last bit is bit-0 of arg_y
     lda arg_y,X                     ; A = arg_y
+    clc                             ; C = 0
     ror                             ; 1st rotate right A ; C = bit-0
     ror                             ; 2nd rotate right A ; bit-7 = C
     and #%10000000                  ; A &= %10000000
@@ -220,7 +221,9 @@ draw_character:
         sta! var_y_pix,X                ; var_y_pix = A
 
         ; set low byte, where the first bit of y becomes bit-7
-        ror                             ; rotate right A (value var_y_pix)
+        clc                             ; C = 0
+        ror                             ; 1st rotate right A (value var_y_pix) ; C = bit-0
+        ror                             ; 2nd rotate right A                   ; bit-7 = C
         and #%10000000                  ; A &= %10000000
         sta zpg_write_addr              ; zpg_write_addr LO = A
 
@@ -261,18 +264,22 @@ draw_character:
                 ldy #0                          ; Y = 0
                 sta (zpg_write_addr),Y          ; write A to ptr (zpg_write_addr),Y
 
+                ; DEBUG - update screen every time a pixel is drawn
+                sta $5000
+
             dont_write:
             .)
 
             ror! var_bitmask,X              ; rotate right var_bitmask
 
-            ; if the bitmask is %10000000, this means
-            ; that 8 bits have already been used
+            ; if the last rotate var_bitmask set the C flag
+            ; then 8 bits have already been used
             ; so it's time to read the next byte
             .(
-            lda! var_bitmask,X              ; A = var_bitmask
-            cmp #%10000000                  ;
-            bne do_nothing                  ; if A != %10000000 -> goto do_nothing
+            bcc do_nothing                  ; if C == 0 -> goto do_nothing
+
+                ; bring the bit in C back into the bitmask
+                ror! var_bitmask,X              ; rotate right var_bitmask ; bit-7 = C
 
                 ; read next byte
                 ldy! var_byte_to_read,X         ; Y = var_byte_to_read
