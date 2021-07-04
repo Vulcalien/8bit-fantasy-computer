@@ -268,9 +268,6 @@ draw_character:
                 ldy #0                          ; Y = 0
                 sta (zpg_write_addr),Y          ; write A to ptr (zpg_write_addr),Y
 
-                ; DEBUG - update screen every time a pixel is drawn
-                sta $5000
-
             dont_write:
             .)
 
@@ -289,6 +286,7 @@ draw_character:
                 ; read next byte
                 ldy! var_byte_to_read,X         ; Y = var_byte_to_read
                 lda (zpg_sprite_ptr),Y          ; A = (zpg_sprite_ptr),Y
+                sta! var_current_byte,X         ; var_current_byte = A
                 inc! var_byte_to_read,X         ; var_byte_to_read++
 
             do_nothing:
